@@ -1,0 +1,356 @@
+{
+  "name": "karline-test-call-generator",
+  "description": null,
+  "active": false,
+  "createdAt": "2026-10-17T10:06:48.071Z",
+  "updatedAt": "2026-10-17T20:08:55.874Z",
+  "isArchived": false,
+  "versionCounter": 95,
+  "sourceWorkflowId": null,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b9394f58-a3ea-4cd4-99b3-d75996db8e32",
+      "name": "Generate a test call"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Write one new call",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You write short, realistic phone calls to Karline Bakery, a cake shop with delivery.\nThe operator is Olena. She always starts with:\n\"Karline Bakery, this is Olena, how can I help you?\"\n\nEach time pick a RANDOM scenario:\n- customer mood: positive, neutral or negative\n- topic: cake quality, delivery, or something else (payment, opening hours, pickup)\n\nRules:\n- 4 to 8 lines in total, operator and customer take turns.\n- Natural spoken English, short sentences.\n- Also return the mood and topic you chose as expected labels."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        224,
+        0
+      ],
+      "id": "551b9770-e713-43d4-a667-d78c46bc2c98",
+      "name": "Write dialogue"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "options": {
+          "temperature": 0.9
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        176,
+        224
+      ],
+      "id": "62a7d408-56ea-4a6c-b246-972df8e067c4",
+      "name": "AI model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"expected_sentiment\": { \"type\": \"string\", \"enum\": [\"positive\", \"neutral\", \"negative\"] },\n    \"expected_category\": { \"type\": \"string\", \"enum\": [\"cake_quality\", \"delivery_quality\", \"other\"] },\n    \"lines\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"speaker\": { \"type\": \"string\", \"enum\": [\"operator\", \"customer\"] },\n          \"text\": { \"type\": \"string\" }\n        },\n        \"required\": [\"speaker\", \"text\"]\n      }\n    }\n  },\n  \"required\": [\"expected_sentiment\", \"expected_category\", \"lines\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        352,
+        224
+      ],
+      "id": "7b2492e0-26cd-4b90-8b1f-f0514768b089",
+      "name": "Strict answer format"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { lines, expected_sentiment, expected_category } = $json.output;\n\n// ElevenLabs voice IDs for the two roles\nconst voices = {\n  operator: 'cgSgspJ2msm6clMCkdW9',\n  customer: 'IKne3meq5aSn9XLyUdCD'\n};\n\nconst inputs = lines.map(l => ({ text: l.text, voice_id: voices[l.speaker] }));\n\nreturn [{ json: { inputs, expected_sentiment, expected_category } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        0
+      ],
+      "id": "2b2fad25-5e2a-49fc-a781-7829e2b07e4c",
+      "name": "Build dialogue"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/text-to-dialogue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"inputs\": $json.inputs, \"model_id\": \"eleven_v3\" } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        816,
+        0
+      ],
+      "id": "38ceb65d-0bdc-41d5-9777-bb3e07f66dae",
+      "name": "Voice it",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "ElevenLabs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "=call_{{ $now.toFormat('yyyyMMdd-HHmmss') }}.mp3",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "Karline_Bakery_Calls",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_GOOGLE_DRIVE_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "a2c6ebd3-10da-447c-b2ec-3b3b3f53d0fd",
+      "name": "Save mp3",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "648db089-beea-49a2-ad58-1e1cfadc1fc6",
+      "name": "Make public",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Karline Calls",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Calls",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "call_url": "=https://drive.google.com/uc?export=download&id={{ $('Save mp3').item.json.id }}"
+          },
+          "matchingColumns": [
+            "call_url"
+          ],
+          "schema": [
+            {
+              "id": "call_url",
+              "displayName": "call_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1488,
+        0
+      ],
+      "id": "dd4ebac5-c0e1-4a68-a8ce-8099af97cc1b",
+      "name": "Add to queue",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Write dialogue": {
+      "main": [
+        [
+          {
+            "node": "Build dialogue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build dialogue": {
+      "main": [
+        [
+          {
+            "node": "Voice it",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice it": {
+      "main": [
+        [
+          {
+            "node": "Save mp3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save mp3": {
+      "main": [
+        [
+          {
+            "node": "Make public",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make public": {
+      "main": [
+        [
+          {
+            "node": "Add to queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate a test call": {
+      "main": [
+        [
+          {
+            "node": "Write dialogue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write dialogue",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Strict answer format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Write dialogue",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "activeVersion": null,
+  "parentFolder": null
+}

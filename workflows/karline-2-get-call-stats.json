@@ -1,0 +1,115 @@
+{
+  "name": "karline-2-get-call-stats",
+  "description": null,
+  "active": false,
+  "createdAt": "2026-10-17T11:15:23.041Z",
+  "updatedAt": "2026-10-17T15:01:16.266Z",
+  "isArchived": false,
+  "versionCounter": 23,
+  "sourceWorkflowId": null,
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "startDate"
+            },
+            {
+              "name": "endDate"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "72ed26d7-2065-4720-bf62-a4b8bc368310",
+      "name": "Receive dates"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "z5piXOk8kgeZSFsd",
+          "mode": "list",
+          "cachedResultName": "call_evaluations",
+          "cachedResultUrl": "/projects/yuIyA9TwTzXXZnLs/datatables/z5piXOk8kgeZSFsd"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "processed_at",
+              "condition": "gte",
+              "keyValue": "={{ DateTime.fromISO($json.startDate, { zone: 'Europe/Kiev' }).startOf('day').toUTC().toISO() }}"
+            },
+            {
+              "keyName": "processed_at",
+              "condition": "lte",
+              "keyValue": "={{ DateTime.fromISO($json.endDate, { zone: 'Europe/Kiev' }).endOf('day').toUTC().toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "72b56ab0-8d41-44b2-8a21-23a175a0c8d5",
+      "name": "Calls in period",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// keep only real rows (Always Output Data adds an empty item when the period has no calls)\nconst rows = $input.all().map(i => i.json).filter(r => r.sentiment);\n\nconst totalCalls = rows.length;\nconst negativeCalls = rows.filter(r => r.sentiment === 'negative').length;\nconst positiveCalls = rows.filter(r => r.sentiment === 'positive').length;\nconst neutralCalls = rows.filter(r => r.sentiment === 'neutral').length;\n\n// no division by zero when there were no calls\nconst percent = totalCalls === 0 ? 0 : Math.round(negativeCalls / totalCalls * 100);\n\nreturn [{\n  json: {\n    totalCalls,\n    negativeCalls,\n    negativeCallPercent: `${percent}%`,\n    positiveCalls,\n    neutralCalls\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "dd7af6ad-c3ab-4df1-9ce2-081ac60efc8d",
+      "name": "Count stats"
+    }
+  ],
+  "connections": {
+    "Receive dates": {
+      "main": [
+        [
+          {
+            "node": "Calls in period",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calls in period": {
+      "main": [
+        [
+          {
+            "node": "Count stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "activeVersion": null,
+  "parentFolder": null
+}

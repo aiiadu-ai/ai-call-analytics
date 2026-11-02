@@ -1,0 +1,203 @@
+{
+  "name": "karline-0-call-intake",
+  "description": null,
+  "active": false,
+  "createdAt": "2026-10-17T09:46:58.136Z",
+  "updatedAt": "2026-10-17T15:01:34.695Z",
+  "isArchived": false,
+  "versionCounter": 30,
+  "sourceWorkflowId": null,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "karline-twilio-recording",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2153c7e7-b270-4722-956f-531697fed1d4",
+      "name": "Call finished (webhook)",
+      "webhookId": "f9aa9a64-7600-49fa-8812-7ff7311258d6"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2b41bcc5-a84d-4b9a-bd98-69af63d6c887",
+              "leftValue": "={{ $json.body.RecordingStatus }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "37eb7499-e26a-4a22-b918-2d68c2deec05",
+              "leftValue": "={{ Number($json.body.RecordingDuration) }}",
+              "rightValue": 5,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "da5f37b4-f64d-4b8f-8c19-f276734f4704",
+      "name": "Real recording, over 5 s"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "adffd09a-9b94-434e-9fe6-9ba79ca3796e",
+              "name": "call_url",
+              "value": "={{ $json.body.RecordingUrl }}.mp3",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        -16
+      ],
+      "id": "566093f0-e405-426b-93ea-2675322589a4",
+      "name": "Prepare link"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Karline Calls",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Calls",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "call_url": "={{ $json.call_url }}"
+          },
+          "matchingColumns": [
+            "call_url"
+          ],
+          "schema": [
+            {
+              "id": "call_url",
+              "displayName": "call_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        -16
+      ],
+      "id": "6a9b9716-a166-4b2b-ae18-d86e5b42e076",
+      "name": "Add to queue, no duplicates",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Prepare link": {
+      "main": [
+        [
+          {
+            "node": "Add to queue, no duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call finished (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Real recording, over 5 s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real recording, over 5 s": {
+      "main": [
+        [
+          {
+            "node": "Prepare link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "activeVersion": null,
+  "parentFolder": null
+}
